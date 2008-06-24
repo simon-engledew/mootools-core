@@ -189,6 +189,39 @@ Selectors.Utils = {
 		
 		return items;
 		
+	},
+	
+	cachePositions: function(element, local) {
+		local.positions = local.positions || {};
+		count = 0;
+		uid = $uid(element);
+		if (!local.positions[uid]){
+			self = element;
+			while ((self = self.previousSibling)){
+				if (self.nodeType != 1) continue;
+				count ++;
+				var position = local.positions[$uid(self)];
+				if (position != undefined){
+					count = position + count;
+					break;
+				}
+			}
+			local.positions[uid] = count;
+		}
+	},
+	
+	cacheSiblings: function(element, local) {
+		Selectors.Utils.cachePositions(element, local);
+		uid = $uid(element);
+		local.siblings = local.siblings || {};
+		if (!local.siblings[uid]) {
+			self = element;
+			local.siblings[uid] = 0;
+			while ((self = self.nextSibling)){
+				if (self.nodeType != 1) local.siblings[uid] += 1;
+			}
+			local.siblings[uid] += local.positions[uid];
+		}
 	}
 	
 };
@@ -316,23 +349,16 @@ Selectors.Pseudo = new Hash({
 		argument = (argument == undefined) ? 'n' : argument;
 		var parsed = Selectors.Utils.parseNthArgument(argument);
 		if (parsed.special != 'n') return Selectors.Pseudo[parsed.special].call(this, parsed.a, local);
-		var count = 0;
-		local.positions = local.positions || {};
-		var uid = $uid(this);
-		if (!local.positions[uid]){
-			var self = this;
-			while ((self = self.previousSibling)){
-				if (self.nodeType != 1) continue;
-				count ++;
-				var position = local.positions[$uid(self)];
-				if (position != undefined){
-					count = position + count;
-					break;
-				}
-			}
-			local.positions[uid] = count;
-		}
+		Selectors.Utils.cachePositions(this, local);
 		return (local.positions[uid] % parsed.a == parsed.b);
+	},
+	
+	'nth-last-child': function(argument, local){
+		argument = (argument == undefined) ? 'n' : argument;
+		var parsed = Selectors.Utils.parseNthArgument(argument);
+		if (parsed.special != 'n') return Selectors.Pseudo[parsed.special].call(this, parsed.a, local);
+		Selectors.Utils.cacheSiblings(this, local);
+		return ((local.siblings[uid] - local.positions[uid]) % parsed.a == parsed.b);
 	},
 	
 	// custom pseudo selectors
